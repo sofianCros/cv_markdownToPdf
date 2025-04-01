@@ -2,3 +2,4 @@
 #exports/
 # Ignorer le fichier .iml
 cv_markdownToPdf.iml
+mon_venv/
