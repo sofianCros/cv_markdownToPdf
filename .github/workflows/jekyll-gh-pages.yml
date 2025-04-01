@@ -1,0 +1,51 @@
+name: markdown to pdf
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Pandoc and LaTeX
+        run: |
+          sudo apt update
+          sudo apt install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-extra
+
+      - name: Convert cv_fr.md to PDF
+        run: |
+          pandoc cv_fr.md -o cv_fr.pdf --pdf-engine=xelatex -V geometry:margin=1in
+
+      - name: Convert cv_en.md to PDF
+        run: |
+          pandoc cv_en.md -o cv_en.pdf --pdf-engine=xelatex -V geometry:margin=1in
+
+      - name: Upload PDFs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-cvs
+          path: |
+            cv_fr.pdf
+            cv_en.pdf
+
+      # Copier les PDFs dans le dossier exports de la branche master
+      - name: Commit and push PDFs to master branch
+        run: |
+          git config --global user.email "your-email@example.com"
+          git config --global user.name "Your Name"
+          git checkout master
+          mkdir -p exports  # Crée le dossier exports s'il n'existe pas
+          mv cv_fr.pdf exports/cv_fr.pdf
+          mv cv_en.pdf exports/cv_en.pdf
+          git add exports/
+          git commit -m "Add generated PDFs to master branch"
+          git push origin master
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
