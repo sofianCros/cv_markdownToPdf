@@ -1,4 +1,4 @@
 .idea/
-exports/
+#exports/
 # Ignorer le fichier .iml
 cv_markdownToPdf.iml
