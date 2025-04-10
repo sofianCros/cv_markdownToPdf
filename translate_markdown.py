@@ -1,65 +1,94 @@
+import panflute as pf
 from transformers import MarianMTModel, MarianTokenizer
-import os
-import time
 from tqdm import tqdm
+import time
 
-def translate_text(text, src="fr", tgt="en"):
+# Load the translation model and tokenizer
+MODEL_NAME = "Helsinki-NLP/opus-mt-fr-en"
+model = MarianMTModel.from_pretrained(MODEL_NAME)
+tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
+
+# Global variable for the progress bar
+pbar = None
+
+def translate_text(text):
     """
-    Effectue la traduction d'un texte avec MarianMT.
+    Translates a text fragment from French to English using MarianMT.
     """
     try:
-        model_name = f"Helsinki-NLP/opus-mt-{src}-{tgt}"
-        model = MarianMTModel.from_pretrained(model_name)
-        tokenizer = MarianTokenizer.from_pretrained(model_name)
-
         tokens = tokenizer(text, return_tensors="pt", padding=True, truncation=True)
         translated = model.generate(**tokens)
         return tokenizer.decode(translated[0], skip_special_tokens=True)
     except Exception as e:
-        print(f"Erreur lors de la traduction : {e}")
-        return text  # Retourne le texte original en cas d'échec
+        pf.debug(f"Translation error for '{text}': {e}")
+        return text
 
-def process_line(line, src="fr", tgt="en"):
+def action(elem, doc):
     """
-    Traduit uniquement les parties traduisibles d'une ligne contenant du Markdown.
+    Action applied to each text fragment (pf.Str) in the AST.
+    Translates the content and updates the progress bar.
     """
-    if line.startswith('#') or line.startswith('```') or ('[' in line and '](' in line):
-        # Retourner la ligne telle quelle si elle contient uniquement du Markdown
-        return line
-    else:
-        # Traduire uniquement le texte brut
-        return translate_text(line.strip(), src, tgt)
+    global pbar
+    if isinstance(elem, pf.Str) and elem.text.strip():
+        elem.text = translate_text(elem.text)
+        if pbar is not None:
+            pbar.update(1)
 
-def translate_markdown_file(input_file, src="fr", tgt="en"):
+def count_translatable_strings(doc):
     """
-    Traduit un fichier Markdown ligne par ligne sans altérer le format Markdown.
+    Counts all pf.Str objects containing non-empty text in the AST.
     """
+    count = 0
+
+    def count_strings(elem, doc):
+        nonlocal count
+        if isinstance(elem, pf.Str) and elem.text.strip():
+            count += 1
+        return elem
+
+    doc.walk(count_strings)
+    return count
+
+def main():
+    input_file = "cv_fr.md"       # Input Markdown file
+    output_file = "cv_fr_en.md"   # Output translated file
+
+    print("Reading the Markdown file...")
+    with open(input_file, 'r', encoding='utf-8') as f:
+        md_content = f.read()
+
+    print("Converting Markdown to AST...")
     try:
-        with open(input_file, 'r', encoding='utf-8') as file:
-            lines = file.readlines()
-
-        output_path = f"{os.path.splitext(input_file)[0]}_en_aiGenerated.md"
-        with open(output_path, 'w', encoding='utf-8') as file:
-            total_lines = len(lines)
-            translated_count = 0
-
-            for line in tqdm(lines, desc="Traduction", ncols=80, ascii=True):
-                translated_line = process_line(line, src, tgt)
-                file.write(translated_line + '\n')
-                if translated_line != line:  # Vérifie si la ligne a été traduite
-                    translated_count += 1
-
-            print(f"Traduction sauvegardée dans : {output_path}")
-            print(f"Résumé : {translated_count}/{total_lines} lignes traduites.")
-    except FileNotFoundError:
-        print(f"Erreur : Le fichier {input_file} n'a pas été trouvé.")
+        doc = pf.convert_text(md_content, input_format="commonmark")
+        if isinstance(doc, list):
+            doc = pf.Doc(*doc)
     except Exception as e:
-        print(f"Une erreur imprévue s'est produite : {e}")
+        print("Error converting Markdown to AST:", e)
+        return
+    print("AST conversion completed.")
 
-if __name__ == "__main__":
+    # Count the translatable text fragments in the AST
+    total = count_translatable_strings(doc)
+    print(f"{total} text fragments to translate.")
+
+    # Initialize the progress bar
+    global pbar
+    pbar = tqdm(total=total, desc="Translating", ncols=80, ascii=True)
+
+    print("Starting translation...")
+    pf.run_filter(action, doc=doc)
+    pbar.close()
+    print("Translation completed.")
+
+    print("Reconstructing the translated Markdown...")
+    translated_md = pf.convert_text(doc, output_format="markdown")
+
+    print(f"Saving the translated file to {output_file}...")
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write(translated_md)
+    print(f"Translation saved to: {output_file}")
+
+if __name__ == '__main__':
     start_time = time.time()
-    input_file = "cv_fr.md"  # Fichier Markdown à traduire
-    source_lang = "fr"
-    target_lang = "en"
-    translate_markdown_file(input_file, src=source_lang, tgt=target_lang)
-    print(f"Temps d'exécution : {time.time() - start_time:.2f} secondes")
+    main()
+    print(f"Execution time: {time.time() - start_time:.2f} seconds")
