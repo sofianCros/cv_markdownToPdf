@@ -1,0 +1,42 @@
+name: translate-cv
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 📥 Clone le dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 🐍 Installe Poetry
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # 🐍 Configure Python (Poetry gère l'environnement)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 📦 Installe les dépendances via Poetry
+      - name: Install dependencies
+        run: poetry install
+
+      # 🔁 Exécute la traduction Markdown (cv_fr → cv_en)
+      - name: Translate CV
+        run: poetry run python scripts/translate_markdown.py
+
+      # 📤 Upload du fichier Markdown traduit
+      - name: Upload translated Markdown
+        uses: actions/upload-artifact@v4
+        with:
+          name: translated-cv
+          path: exports/cv_en_aiGenerated.md

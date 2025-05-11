@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "cv-markdown-translator"
+version = "0.1.0"
+description = "Traduction automatique d'un CV Markdown (fr → en) avec Hugging Face"
+authors = ["Sofian Cros <sofian@example.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "scripts/*.py" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+transformers = "^4.36.2"
+torch = "^2.1.0"
+rich = "^13.7.0"
+sentencepiece = "^0.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
