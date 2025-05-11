@@ -34,9 +34,8 @@ jobs:
       - name: Translate CV
         run: poetry run python scripts/translate_markdown.py
 
-      # 📤 Upload du fichier Markdown traduit
-      - name: Upload translated Markdown
-        uses: actions/upload-artifact@v4
-        with:
-          name: translated-cv
-          path: exports/cv_en_aiGenerated.md
+      - name: Commit translated Markdown
+        run: |
+          git add exports/cv_en_aiGenerated.md
+          git commit -m "🤖 Add translated Markdown file [ci skip]" || echo "No changes to commit"
+          git push
